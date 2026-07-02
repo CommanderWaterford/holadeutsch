@@ -1,0 +1,59 @@
+package com.holadeutsch.app.ui.browse
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.holadeutsch.app.core.tts.GermanTts
+import com.holadeutsch.app.data.local.ProgressDao
+import com.holadeutsch.app.data.model.Category
+import com.holadeutsch.app.data.model.Word
+import com.holadeutsch.app.data.repo.WordRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.stateIn
+
+data class BrowseUiState(
+    val words: List<Word> = emptyList(),
+    val boxes: Map<Int, Int> = emptyMap(),
+    val query: String = "",
+    val category: Category? = null
+)
+
+class BrowseViewModel(
+    wordRepository: WordRepository,
+    progressDao: ProgressDao,
+    val tts: GermanTts
+) : ViewModel() {
+
+    private val query = MutableStateFlow("")
+    private val category = MutableStateFlow<Category?>(null)
+    private val words = flow { emit(wordRepository.getWords()) }
+
+    val ui: StateFlow<BrowseUiState> =
+        combine(words, progressDao.observeAll(), query, category) { w, progress, q, c ->
+            BrowseUiState(
+                words = w
+                    .filter { c == null || it.category == c }
+                    .filter {
+                        q.isBlank() ||
+                            it.german.contains(q, ignoreCase = true) ||
+                            it.spanish.contains(q, ignoreCase = true)
+                    },
+                boxes = progress.associate { it.wordId to it.box },
+                query = q,
+                category = c
+            )
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BrowseUiState())
+
+    fun setQuery(value: String) {
+        query.value = value
+    }
+
+    fun setCategory(value: Category?) {
+        category.value = value
+    }
+
+    fun speak(text: String) = tts.speak(text)
+}

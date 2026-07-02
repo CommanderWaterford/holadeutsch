@@ -1,0 +1,36 @@
+package com.holadeutsch.app.ui
+
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.holadeutsch.app.HolaDeutschApp
+import com.holadeutsch.app.ui.browse.BrowseViewModel
+import com.holadeutsch.app.ui.home.HomeViewModel
+import com.holadeutsch.app.ui.progress.ProgressViewModel
+import com.holadeutsch.app.ui.quiz.QuizViewModel
+
+/** Central ViewModel factory wired to the app's manual DI container. */
+object AppViewModelProvider {
+    val Factory = viewModelFactory {
+        initializer {
+            val c = holaApp().container
+            HomeViewModel(c.statsRepository, c.wordRepository, c.germanTts)
+        }
+        initializer {
+            val c = holaApp().container
+            QuizViewModel(c.wordRepository, c.progressDao, c.statsRepository, c.germanTts)
+        }
+        initializer {
+            val c = holaApp().container
+            BrowseViewModel(c.wordRepository, c.progressDao, c.germanTts)
+        }
+        initializer {
+            val c = holaApp().container
+            ProgressViewModel(c.wordRepository, c.progressDao, c.statsRepository, c.germanTts)
+        }
+    }
+}
+
+private fun CreationExtras.holaApp(): HolaDeutschApp =
+    this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as HolaDeutschApp
