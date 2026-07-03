@@ -1,6 +1,13 @@
 package com.holadeutsch.app.ui.quiz
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,10 +52,11 @@ import com.holadeutsch.app.domain.AnswerResult
 import com.holadeutsch.app.domain.Direction
 import com.holadeutsch.app.domain.Question
 import com.holadeutsch.app.ui.AppViewModelProvider
+import com.holadeutsch.app.ui.components.ArticleText
 import com.holadeutsch.app.ui.components.SpeakerButton
 import com.holadeutsch.app.ui.components.articleColor
-import com.holadeutsch.app.ui.theme.CorrectGreen
-import com.holadeutsch.app.ui.theme.PartialAmber
+import com.holadeutsch.app.ui.components.correctColor
+import com.holadeutsch.app.ui.components.partialColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,33 +132,45 @@ private fun QuizContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        PromptCard(question, viewModel)
+        AnimatedContent(
+            targetState = ui.index,
+            transitionSpec = {
+                (slideInHorizontally(tween(300)) { it / 2 } + fadeIn(tween(300))) togetherWith
+                    fadeOut(tween(120))
+            },
+            label = "question"
+        ) { index ->
+            val q = ui.questions.getOrNull(index) ?: return@AnimatedContent
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                PromptCard(q, viewModel)
 
-        when (question) {
-            is Question.MultipleChoice ->
-                OptionsList(question.options, question.correctIndex, ui, viewModel::answerChoice)
+                when (q) {
+                    is Question.MultipleChoice ->
+                        OptionsList(q.options, q.correctIndex, ui, viewModel::answerChoice)
 
-            is Question.ArticleChoice ->
-                OptionsList(question.options, question.correctIndex, ui, viewModel::answerChoice)
+                    is Question.ArticleChoice ->
+                        OptionsList(q.options, q.correctIndex, ui, viewModel::answerChoice)
 
-            is Question.Typed -> {
-                OutlinedTextField(
-                    value = ui.typedInput,
-                    onValueChange = viewModel::onTypedChange,
-                    enabled = !ui.answered,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Tu respuesta") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { viewModel.submitTyped() })
-                )
-                if (!ui.answered) {
-                    Button(
-                        onClick = viewModel::submitTyped,
-                        enabled = ui.typedInput.isNotBlank(),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Comprobar")
+                    is Question.Typed -> {
+                        OutlinedTextField(
+                            value = ui.typedInput,
+                            onValueChange = viewModel::onTypedChange,
+                            enabled = !ui.answered,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Tu respuesta") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { viewModel.submitTyped() })
+                        )
+                        if (!ui.answered) {
+                            Button(
+                                onClick = viewModel::submitTyped,
+                                enabled = ui.typedInput.isNotBlank(),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Comprobar")
+                            }
+                        }
                     }
                 }
             }
@@ -177,15 +197,19 @@ private fun PromptCard(question: Question, viewModel: QuizViewModel) {
                         color = MaterialTheme.colorScheme.primary
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            if (deToEs) question.word.german else question.word.spanish,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
-                        )
                         if (deToEs) {
+                            ArticleText(
+                                question.word,
+                                style = MaterialTheme.typography.headlineLarge
+                            )
                             SpeakerButton(viewModel.tts.available) {
                                 viewModel.speak(question.word.german)
                             }
+                        } else {
+                            Text(
+                                question.word.spanish,
+                                style = MaterialTheme.typography.headlineLarge
+                            )
                         }
                     }
                 }
@@ -198,8 +222,7 @@ private fun PromptCard(question: Question, viewModel: QuizViewModel) {
                     )
                     Text(
                         question.word.germanBare,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.headlineLarge
                     )
                 }
 
@@ -211,8 +234,7 @@ private fun PromptCard(question: Question, viewModel: QuizViewModel) {
                     )
                     Text(
                         question.word.spanish,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.headlineLarge
                     )
                     if (question.word.isNoun) {
                         Text(
@@ -236,16 +258,22 @@ private fun OptionsList(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         options.forEachIndexed { index, option ->
+            val isCorrect = ui.answered && index == correctIndex
+            val isWrongPick = ui.answered && index == ui.selectedIndex && index != correctIndex
             val container = when {
-                ui.answered && index == correctIndex -> CorrectGreen.copy(alpha = 0.20f)
-                ui.answered && index == ui.selectedIndex ->
-                    MaterialTheme.colorScheme.errorContainer
-
+                isCorrect -> correctColor().copy(alpha = 0.16f)
+                isWrongPick -> MaterialTheme.colorScheme.errorContainer
                 else -> MaterialTheme.colorScheme.surface
+            }
+            val border = when {
+                isCorrect -> BorderStroke(2.dp, correctColor())
+                isWrongPick -> BorderStroke(2.dp, MaterialTheme.colorScheme.error)
+                else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             }
             OutlinedCard(
                 onClick = { if (!ui.answered) onSelect(index) },
-                colors = CardDefaults.outlinedCardColors(containerColor = container)
+                colors = CardDefaults.outlinedCardColors(containerColor = container),
+                border = border
             ) {
                 Text(
                     option,
@@ -269,15 +297,16 @@ private fun FeedbackPanel(
     viewModel: QuizViewModel
 ) {
     val (title, color) = when (result) {
-        AnswerResult.CORRECT -> "¡Correcto! +10 XP" to CorrectGreen
-        AnswerResult.PARTIAL -> "¡Casi! Pequeño error de escritura. +5 XP" to PartialAmber
+        AnswerResult.CORRECT -> "¡Correcto! +10 XP" to correctColor()
+        AnswerResult.PARTIAL -> "¡Casi! Pequeño error de escritura. +5 XP" to partialColor()
         AnswerResult.WRONG -> "Incorrecto" to MaterialTheme.colorScheme.error
     }
     Card(
         Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        ),
+        border = BorderStroke(1.5.dp, color.copy(alpha = 0.6f))
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = color, fontWeight = FontWeight.Bold)

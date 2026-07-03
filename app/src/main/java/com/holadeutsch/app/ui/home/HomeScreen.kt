@@ -29,12 +29,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.holadeutsch.app.ui.AppViewModelProvider
 import com.holadeutsch.app.ui.components.ArticleText
 import com.holadeutsch.app.ui.components.DailyGoalRing
 import com.holadeutsch.app.ui.components.SpeakerButton
 import com.holadeutsch.app.ui.components.StatChip
+import com.holadeutsch.app.ui.components.TricolorBar
 import java.time.LocalTime
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,11 +59,16 @@ fun HomeScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                greeting(),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "HOLADEUTSCH",
+                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 3.sp),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+                TricolorBar()
+            }
+            Text(greeting(), style = MaterialTheme.typography.headlineLarge)
             Text(
                 "Tus 100 palabras esenciales de alemán",
                 style = MaterialTheme.typography.bodyMedium,
@@ -69,9 +76,18 @@ fun HomeScreen(
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatChip("🔥 ${stats.streak} ${if (stats.streak == 1) "día" else "días"}")
-                StatChip("⭐ Nivel ${stats.level}")
-                StatChip("${stats.totalXp} XP")
+                StatChip(
+                    "🔥 ${stats.streak} ${if (stats.streak == 1) "día" else "días"}",
+                    container = MaterialTheme.colorScheme.tertiaryContainer
+                )
+                StatChip(
+                    "⭐ Nivel ${stats.level}",
+                    container = MaterialTheme.colorScheme.primaryContainer
+                )
+                StatChip(
+                    "${stats.totalXp} XP",
+                    container = MaterialTheme.colorScheme.secondaryContainer
+                )
             }
 
             Card(Modifier.fillMaxWidth()) {
@@ -93,8 +109,13 @@ fun HomeScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Button(onClick = onStartQuiz, modifier = Modifier.fillMaxWidth()) {
-                            Text("Empezar quiz")
+                        Button(
+                            onClick = onStartQuiz,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            Text("Empezar quiz", style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 }

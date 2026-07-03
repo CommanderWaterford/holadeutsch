@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.holadeutsch.app.ui.components.TricolorBar
 
 @Composable
 fun ResultScreen(
@@ -58,12 +59,13 @@ fun ResultScreen(
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
+            TricolorBar()
+            Spacer(Modifier.height(10.dp))
             Text(
                 "$correct / $total",
-                style = MaterialTheme.typography.displayMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.displayLarge,
+                color = MaterialTheme.colorScheme.primary
             )
             Text("aciertos", style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(16.dp))
