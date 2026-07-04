@@ -18,10 +18,20 @@ object Routes {
     const val QUIZ = "quiz"
     const val BROWSE = "browse"
     const val PROGRESS = "progress"
-    const val RESULT = "result/{correct}/{total}/{xp}/{goalMet}/{streak}/{perfect}"
+    const val RESULT = "result/{correct}/{total}/{xp}/{goalMet}/{streak}/{perfect}/{wrongIds}"
 
-    fun result(correct: Int, total: Int, xp: Int, goalMet: Boolean, streak: Int, perfect: Boolean) =
-        "result/$correct/$total/$xp/$goalMet/$streak/$perfect"
+    fun result(
+        correct: Int,
+        total: Int,
+        xp: Int,
+        goalMet: Boolean,
+        streak: Int,
+        perfect: Boolean,
+        wrongIds: List<Int>
+    ): String {
+        val ids = if (wrongIds.isEmpty()) "-" else wrongIds.joinToString(",")
+        return "result/$correct/$total/$xp/$goalMet/$streak/$perfect/$ids"
+    }
 }
 
 @Composable
@@ -38,7 +48,7 @@ fun HolaNavHost(navController: NavHostController = rememberNavController()) {
 
         composable(Routes.QUIZ) {
             QuizScreen(
-                onFinished = { outcome, correct, total ->
+                onFinished = { outcome, correct, total, wrongIds ->
                     navController.navigate(
                         Routes.result(
                             correct = correct,
@@ -46,7 +56,8 @@ fun HolaNavHost(navController: NavHostController = rememberNavController()) {
                             xp = outcome.xpAwarded,
                             goalMet = outcome.goalJustMet,
                             streak = outcome.streak,
-                            perfect = outcome.perfect
+                            perfect = outcome.perfect,
+                            wrongIds = wrongIds
                         )
                     ) {
                         popUpTo(Routes.HOME)
@@ -64,7 +75,8 @@ fun HolaNavHost(navController: NavHostController = rememberNavController()) {
                 navArgument("xp") { type = NavType.IntType },
                 navArgument("goalMet") { type = NavType.BoolType },
                 navArgument("streak") { type = NavType.IntType },
-                navArgument("perfect") { type = NavType.BoolType }
+                navArgument("perfect") { type = NavType.BoolType },
+                navArgument("wrongIds") { type = NavType.StringType }
             )
         ) { entry ->
             val args = requireNotNull(entry.arguments)

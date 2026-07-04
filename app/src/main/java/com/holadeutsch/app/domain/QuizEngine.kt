@@ -1,5 +1,6 @@
 package com.holadeutsch.app.domain
 
+import com.holadeutsch.app.data.local.ProgressEntity
 import com.holadeutsch.app.data.model.Word
 import java.text.Normalizer
 import kotlin.random.Random
@@ -27,30 +28,29 @@ sealed interface Question {
 }
 
 /**
- * Pure question generator + answer checker. Weakest words (lowest Leitner box)
- * are picked more often; distractors prefer same-category words.
+ * Pure question generator + answer checker. Word selection follows SuperMemo-2:
+ * words due for review come first, then unseen words in curriculum order, then
+ * the words whose review is closest. Distractors prefer same-category words.
  */
 class QuizEngine(private val random: Random = Random.Default) {
 
-    fun buildSession(words: List<Word>, boxes: Map<Int, Int>, size: Int = 10): List<Question> {
-        val picked = pickWeighted(words, boxes, minOf(size, words.size))
+    fun buildSession(
+        words: List<Word>,
+        progress: Map<Int, ProgressEntity>,
+        today: Long,
+        size: Int = 10
+    ): List<Question> {
+        val due = words
+            .filter { progress[it.id]?.let { p -> p.repetitions > 0 && p.dueEpochDay <= today } == true }
+            .shuffled(random)
+        val fresh = words
+            .filter { (progress[it.id]?.repetitions ?: 0) == 0 }
+            .sortedBy { it.id }
+        val upcoming = words
+            .filter { progress[it.id]?.let { p -> p.repetitions > 0 && p.dueEpochDay > today } == true }
+            .sortedBy { progress[it.id]?.dueEpochDay ?: Long.MAX_VALUE }
+        val picked = (due + fresh + upcoming).take(minOf(size, words.size))
         return picked.map { toQuestion(it, words) }
-    }
-
-    private fun pickWeighted(words: List<Word>, boxes: Map<Int, Int>, count: Int): List<Word> {
-        val pool = words.toMutableList()
-        val result = mutableListOf<Word>()
-        repeat(count) {
-            val weights = pool.map { 6 - (boxes[it.id] ?: 1).coerceIn(1, 5) }
-            var r = random.nextInt(weights.sum())
-            var idx = 0
-            while (r >= weights[idx]) {
-                r -= weights[idx]
-                idx++
-            }
-            result += pool.removeAt(idx)
-        }
-        return result
     }
 
     private fun toQuestion(word: Word, all: List<Word>): Question {

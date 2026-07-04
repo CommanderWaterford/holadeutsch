@@ -22,6 +22,7 @@ data class Stats(
     val longestStreak: Int = 0,
     val dailyGoal: Int = 10,
     val wordsToday: Int = 0,
+    val selectedNivel: Int = 1,
     val ttsEnabled: Boolean = true,
     val hapticsEnabled: Boolean = true,
     val activeDays: Set<Long> = emptySet()
@@ -52,6 +53,7 @@ class StatsRepository(context: Context) {
         val DAILY_GOAL = intPreferencesKey("daily_goal")
         val WORDS_TODAY = intPreferencesKey("words_today")
         val WORDS_DAY = longPreferencesKey("words_day")
+        val NIVEL = intPreferencesKey("selected_nivel")
         val TTS = booleanPreferencesKey("tts_enabled")
         val HAPTICS = booleanPreferencesKey("haptics_enabled")
         val ACTIVE_DAYS = stringSetPreferencesKey("active_days")
@@ -67,6 +69,7 @@ class StatsRepository(context: Context) {
             longestStreak = p[Keys.LONGEST] ?: 0,
             dailyGoal = p[Keys.DAILY_GOAL] ?: 10,
             wordsToday = if ((p[Keys.WORDS_DAY] ?: -1L) == today) (p[Keys.WORDS_TODAY] ?: 0) else 0,
+            selectedNivel = (p[Keys.NIVEL] ?: 1).coerceIn(1, 3),
             ttsEnabled = p[Keys.TTS] ?: true,
             hapticsEnabled = p[Keys.HAPTICS] ?: true,
             activeDays = (p[Keys.ACTIVE_DAYS] ?: emptySet()).mapNotNull { it.toLongOrNull() }.toSet()
@@ -113,6 +116,10 @@ class StatsRepository(context: Context) {
 
     suspend fun setDailyGoal(goal: Int) {
         store.edit { it[Keys.DAILY_GOAL] = goal }
+    }
+
+    suspend fun setSelectedNivel(nivel: Int) {
+        store.edit { it[Keys.NIVEL] = nivel.coerceIn(1, 3) }
     }
 
     suspend fun setTtsEnabled(enabled: Boolean) {

@@ -6,6 +6,7 @@ import com.holadeutsch.app.core.tts.GermanTts
 import com.holadeutsch.app.data.local.ProgressDao
 import com.holadeutsch.app.data.model.Category
 import com.holadeutsch.app.data.model.Word
+import com.holadeutsch.app.data.repo.StatsRepository
 import com.holadeutsch.app.data.repo.WordRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,14 +17,16 @@ import kotlinx.coroutines.flow.stateIn
 
 data class BrowseUiState(
     val words: List<Word> = emptyList(),
-    val boxes: Map<Int, Int> = emptyMap(),
+    val mastery: Map<Int, Int> = emptyMap(),
     val query: String = "",
-    val category: Category? = null
+    val category: Category? = null,
+    val nivel: Int = 1
 )
 
 class BrowseViewModel(
     wordRepository: WordRepository,
     progressDao: ProgressDao,
+    statsRepository: StatsRepository,
     val tts: GermanTts
 ) : ViewModel() {
 
@@ -31,21 +34,28 @@ class BrowseViewModel(
     private val category = MutableStateFlow<Category?>(null)
     private val words = flow { emit(wordRepository.getWords()) }
 
-    val ui: StateFlow<BrowseUiState> =
-        combine(words, progressDao.observeAll(), query, category) { w, progress, q, c ->
-            BrowseUiState(
-                words = w
-                    .filter { c == null || it.category == c }
-                    .filter {
-                        q.isBlank() ||
-                            it.german.contains(q, ignoreCase = true) ||
-                            it.spanish.contains(q, ignoreCase = true)
-                    },
-                boxes = progress.associate { it.wordId to it.box },
-                query = q,
-                category = c
-            )
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BrowseUiState())
+    val ui: StateFlow<BrowseUiState> = combine(
+        words,
+        progressDao.observeAll(),
+        query,
+        category,
+        statsRepository.stats
+    ) { w, progress, q, c, stats ->
+        BrowseUiState(
+            words = w
+                .filter { it.nivel == stats.selectedNivel }
+                .filter { c == null || it.category == c }
+                .filter {
+                    q.isBlank() ||
+                        it.german.contains(q, ignoreCase = true) ||
+                        it.spanish.contains(q, ignoreCase = true)
+                },
+            mastery = progress.associate { it.wordId to it.mastery },
+            query = q,
+            category = c,
+            nivel = stats.selectedNivel
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BrowseUiState())
 
     fun setQuery(value: String) {
         query.value = value

@@ -1,6 +1,8 @@
 package com.holadeutsch.app.ui
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -9,6 +11,7 @@ import com.holadeutsch.app.ui.browse.BrowseViewModel
 import com.holadeutsch.app.ui.home.HomeViewModel
 import com.holadeutsch.app.ui.progress.ProgressViewModel
 import com.holadeutsch.app.ui.quiz.QuizViewModel
+import com.holadeutsch.app.ui.result.ResultViewModel
 
 /** Central ViewModel factory wired to the app's manual DI container. */
 object AppViewModelProvider {
@@ -23,11 +26,15 @@ object AppViewModelProvider {
         }
         initializer {
             val c = holaApp().container
-            BrowseViewModel(c.wordRepository, c.progressDao, c.germanTts)
+            BrowseViewModel(c.wordRepository, c.progressDao, c.statsRepository, c.germanTts)
         }
         initializer {
             val c = holaApp().container
             ProgressViewModel(c.wordRepository, c.progressDao, c.statsRepository, c.germanTts)
+        }
+        initializer {
+            val c = holaApp().container
+            ResultViewModel(createSavedStateHandle(), c.wordRepository, c.germanTts)
         }
     }
 }

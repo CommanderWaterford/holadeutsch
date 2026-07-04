@@ -57,7 +57,7 @@ fun WordListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Las 100 palabras") },
+                title = { Text("Palabras · Nivel ${ui.nivel}") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
@@ -110,7 +110,7 @@ fun WordListScreen(
                         supportingContent = { Text(word.spanish) },
                         trailingContent = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                MasteryDots(ui.boxes[word.id] ?: 0)
+                                MasteryDots(ui.mastery[word.id] ?: 0)
                                 SpeakerButton(viewModel.tts.available) {
                                     viewModel.speak(word.german)
                                 }
@@ -154,9 +154,9 @@ fun WordListScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    MasteryDots(ui.boxes[word.id] ?: 0)
+                    MasteryDots(ui.mastery[word.id] ?: 0)
                     Text(
-                        "Dominio: ${ui.boxes[word.id] ?: 0}/5",
+                        "Dominio: ${ui.mastery[word.id] ?: 0}/5",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

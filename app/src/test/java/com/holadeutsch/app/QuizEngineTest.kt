@@ -1,5 +1,6 @@
 package com.holadeutsch.app
 
+import com.holadeutsch.app.data.local.ProgressEntity
 import com.holadeutsch.app.data.model.Category
 import com.holadeutsch.app.data.model.Word
 import com.holadeutsch.app.domain.AnswerResult
@@ -33,7 +34,7 @@ class QuizEngineTest {
 
     @Test
     fun `session has requested size and unique words`() {
-        val session = engine.buildSession(words, emptyMap(), 10)
+        val session = engine.buildSession(words, emptyMap(), today = 100, size = 10)
         assertEquals(10, session.size)
         assertEquals(10, session.map { it.word.id }.distinct().size)
     }
@@ -41,7 +42,7 @@ class QuizEngineTest {
     @Test
     fun `multiple choice has four unique options including the answer`() {
         repeat(50) { seed ->
-            QuizEngine(Random(seed)).buildSession(words, emptyMap(), 10)
+            QuizEngine(Random(seed)).buildSession(words, emptyMap(), today = 100, size = 10)
                 .filterIsInstance<Question.MultipleChoice>()
                 .forEach { q ->
                     assertEquals(4, q.options.size)
@@ -56,7 +57,7 @@ class QuizEngineTest {
     @Test
     fun `article questions only appear for nouns`() {
         repeat(50) { seed ->
-            QuizEngine(Random(seed)).buildSession(words, emptyMap(), 10)
+            QuizEngine(Random(seed)).buildSession(words, emptyMap(), today = 100, size = 10)
                 .filterIsInstance<Question.ArticleChoice>()
                 .forEach { assertNotNull(it.word.article) }
         }
@@ -79,13 +80,22 @@ class QuizEngineTest {
     }
 
     @Test
-    fun `weak words are favored by weighted picking`() {
-        // Word 1 is in box 1, everything else mastered (box 5).
-        val boxes = words.associate { it.id to if (it.id == 1) 1 else 5 }
-        val hits = (0 until 100).count { seed ->
-            QuizEngine(Random(seed)).buildSession(words, boxes, 5).any { it.word.id == 1 }
+    fun `due words are served before new and upcoming words`() {
+        val today = 100L
+        // Word 1 is overdue, words 2-3 reviewed and not yet due, the rest are new.
+        val progress = mapOf(
+            1 to ProgressEntity(wordId = 1, repetitions = 2, intervalDays = 6, dueEpochDay = 99),
+            2 to ProgressEntity(wordId = 2, repetitions = 2, intervalDays = 6, dueEpochDay = 104),
+            3 to ProgressEntity(wordId = 3, repetitions = 1, intervalDays = 1, dueEpochDay = 101)
+        )
+        repeat(20) { seed ->
+            val session = QuizEngine(Random(seed)).buildSession(words, progress, today, 10)
+            // The overdue word always leads the session.
+            assertEquals(1, session.first().word.id)
+            // New words fill the rest before not-yet-due reviewed words are recycled.
+            val ids = session.map { it.word.id }
+            assertTrue("not-yet-due words should come last", 2 !in ids.take(9) && 3 !in ids.take(9))
         }
-        assertTrue("expected weighted picking to favor the weak word, hits=$hits", hits > 60)
     }
 
     private fun word(id: Int, german: String, spanish: String, article: String?, category: Category) =

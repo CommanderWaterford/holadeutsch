@@ -8,8 +8,17 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
-/** Loads the bundled 100-word deck from assets/words.json (once, then cached in memory). */
+/**
+ * Loads the bundled word decks (one asset file per nivel) once, then caches them.
+ * The nivel is assigned from the file a word came from.
+ */
 class WordRepository(private val context: Context) {
+
+    private val files = mapOf(
+        1 to "words_n1.json",
+        2 to "words_n2.json",
+        3 to "words_n3.json"
+    )
 
     private val json = Json { ignoreUnknownKeys = true }
     private val mutex = Mutex()
@@ -17,8 +26,13 @@ class WordRepository(private val context: Context) {
 
     suspend fun getWords(): List<Word> = cache ?: mutex.withLock {
         cache ?: withContext(Dispatchers.IO) {
-            context.assets.open("words.json").bufferedReader().use { it.readText() }
-                .let { json.decodeFromString<List<Word>>(it) }
+            files.flatMap { (nivel, file) ->
+                context.assets.open(file).bufferedReader().use { it.readText() }
+                    .let { json.decodeFromString<List<Word>>(it) }
+                    .map { it.copy(nivel = nivel) }
+            }
         }.also { cache = it }
     }
+
+    suspend fun getWords(nivel: Int): List<Word> = getWords().filter { it.nivel == nivel }
 }

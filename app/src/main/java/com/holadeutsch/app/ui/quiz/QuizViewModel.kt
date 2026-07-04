@@ -11,13 +11,14 @@ import com.holadeutsch.app.data.repo.WordRepository
 import com.holadeutsch.app.domain.AnswerResult
 import com.holadeutsch.app.domain.Question
 import com.holadeutsch.app.domain.QuizEngine
-import com.holadeutsch.app.domain.Srs
+import com.holadeutsch.app.domain.Sm2
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 data class QuizUiState(
     val loading: Boolean = true,
@@ -28,6 +29,7 @@ data class QuizUiState(
     val lastResult: AnswerResult? = null,
     val correctCount: Int = 0,
     val xp: Int = 0,
+    val wrongWordIds: List<Int> = emptyList(),
     val outcome: SessionOutcome? = null,
     val hapticsEnabled: Boolean = true
 ) {
@@ -49,14 +51,19 @@ class QuizViewModel(
 
     init {
         viewModelScope.launch {
-            val words = wordRepository.getWords()
-            val boxes = progressDao.getAllOnce().associate { it.wordId to it.box }
-            val haptics = statsRepository.stats.first().hapticsEnabled
+            val stats = statsRepository.stats.first()
+            val words = wordRepository.getWords(stats.selectedNivel)
+            val progress = progressDao.getAllOnce().associateBy { it.wordId }
             _ui.update {
                 it.copy(
                     loading = false,
-                    hapticsEnabled = haptics,
-                    questions = engine.buildSession(words, boxes, SESSION_SIZE)
+                    hapticsEnabled = stats.hapticsEnabled,
+                    questions = engine.buildSession(
+                        words = words,
+                        progress = progress,
+                        today = LocalDate.now().toEpochDay(),
+                        size = SESSION_SIZE
+                    )
                 )
             }
         }
@@ -93,6 +100,7 @@ class QuizViewModel(
                 lastResult = result,
                 selectedIndex = selectedIndex,
                 correctCount = it.correctCount + if (counted) 1 else 0,
+                wrongWordIds = if (counted) it.wrongWordIds else it.wrongWordIds + q.word.id,
                 xp = it.xp + when (result) {
                     AnswerResult.CORRECT -> 10
                     AnswerResult.PARTIAL -> 5
@@ -102,7 +110,9 @@ class QuizViewModel(
         }
         viewModelScope.launch {
             val existing = progressDao.get(q.word.id) ?: ProgressEntity(wordId = q.word.id)
-            progressDao.upsert(Srs.onAnswer(existing, counted))
+            progressDao.upsert(
+                Sm2.onAnswer(existing, Sm2.qualityOf(result), LocalDate.now().toEpochDay())
+            )
         }
     }
 

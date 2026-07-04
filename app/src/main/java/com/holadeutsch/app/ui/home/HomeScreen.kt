@@ -21,6 +21,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -31,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.holadeutsch.app.data.model.Nivel
 import com.holadeutsch.app.ui.AppViewModelProvider
 import com.holadeutsch.app.ui.components.ArticleText
 import com.holadeutsch.app.ui.components.DailyGoalRing
@@ -87,6 +91,30 @@ fun HomeScreen(
                 StatChip(
                     "${stats.totalXp} XP",
                     container = MaterialTheme.colorScheme.secondaryContainer
+                )
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "Tu nivel",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    Nivel.entries.forEachIndexed { index, nivel ->
+                        SegmentedButton(
+                            selected = stats.selectedNivel == nivel.number,
+                            onClick = { viewModel.setNivel(nivel.number) },
+                            shape = SegmentedButtonDefaults.itemShape(index, Nivel.entries.size)
+                        ) {
+                            Text("${nivel.number} · ${nivel.cefr}")
+                        }
+                    }
+                }
+                Text(
+                    Nivel.of(stats.selectedNivel).labelEs,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 

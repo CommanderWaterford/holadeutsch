@@ -36,13 +36,16 @@ class ProgressViewModel(
     private val words = flow { emit(wordRepository.getWords()) }
 
     val ui: StateFlow<ProgressUiState> =
-        combine(words, progressDao.observeAll(), statsRepository.stats) { w, progress, stats ->
-            val boxes = progress.associate { it.wordId to it.box }
-            val seen = progress.sumOf { it.timesSeen }
-            val correct = progress.sumOf { it.timesCorrect }
+        combine(words, progressDao.observeAll(), statsRepository.stats) { all, progress, stats ->
+            val w = all.filter { it.nivel == stats.selectedNivel }
+            val nivelIds = w.map { it.id }.toSet()
+            val nivelProgress = progress.filter { it.wordId in nivelIds }
+            val mastery = nivelProgress.associate { it.wordId to it.mastery }
+            val seen = nivelProgress.sumOf { it.timesSeen }
+            val correct = nivelProgress.sumOf { it.timesCorrect }
             ProgressUiState(
                 stats = stats,
-                masteredCount = progress.count { it.box >= 5 },
+                masteredCount = nivelProgress.count { it.isMastered },
                 totalWords = w.size,
                 accuracyPercent = if (seen > 0) (correct * 100f / seen).roundToInt() else null,
                 perCategory = Category.entries.mapNotNull { cat ->
@@ -50,7 +53,7 @@ class ProgressViewModel(
                     if (catWords.isEmpty()) null
                     else CategoryMastery(
                         cat,
-                        catWords.map { ((boxes[it.id] ?: 1) - 1) / 4f }.average().toFloat()
+                        catWords.map { (mastery[it.id] ?: 0) / 5f }.average().toFloat()
                     )
                 }
             )

@@ -61,7 +61,7 @@ import com.holadeutsch.app.ui.components.partialColor
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuizScreen(
-    onFinished: (SessionOutcome, Int, Int) -> Unit,
+    onFinished: (SessionOutcome, Int, Int, List<Int>) -> Unit,
     onExit: () -> Unit,
     viewModel: QuizViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
@@ -69,7 +69,7 @@ fun QuizScreen(
     val haptic = LocalHapticFeedback.current
 
     LaunchedEffect(ui.outcome) {
-        ui.outcome?.let { onFinished(it, ui.correctCount, ui.questions.size) }
+        ui.outcome?.let { onFinished(it, ui.correctCount, ui.questions.size, ui.wrongWordIds) }
     }
     LaunchedEffect(ui.lastResult) {
         if (ui.lastResult != null && ui.hapticsEnabled) {

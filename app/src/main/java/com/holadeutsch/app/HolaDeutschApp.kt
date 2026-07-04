@@ -36,7 +36,7 @@ class AppContainer(context: Context) {
         context,
         HolaDeutschDatabase::class.java,
         "holadeutsch.db"
-    ).build()
+    ).fallbackToDestructiveMigration().build()
 
     val progressDao = database.progressDao()
     val wordRepository = WordRepository(context)

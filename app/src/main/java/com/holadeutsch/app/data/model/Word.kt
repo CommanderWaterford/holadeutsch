@@ -2,7 +2,7 @@ package com.holadeutsch.app.data.model
 
 import kotlinx.serialization.Serializable
 
-/** Thematic groups for the 100-word deck. Labels are shown to the (Spanish-speaking) user. */
+/** Thematic groups for the word decks. Labels are shown to the (Spanish-speaking) user. */
 @Serializable
 enum class Category(val labelEs: String) {
     GREETINGS("Saludos y cortesía"),
@@ -16,7 +16,32 @@ enum class Category(val labelEs: String) {
     TIME("Tiempo y días"),
     FOOD("Comida y bebida"),
     PLACES("Lugares"),
-    CONNECTORS("Palabras útiles")
+    CONNECTORS("Palabras útiles"),
+    BODY("Cuerpo humano"),
+    CLOTHING("Ropa"),
+    ANIMALS("Animales"),
+    NATURE("Naturaleza"),
+    WEATHER("El clima"),
+    HOUSE("Casa y hogar"),
+    TRAVEL("Viajes y transporte"),
+    WORK("Trabajo y estudios"),
+    FEELINGS("Emociones"),
+    SHOPPING("Compras y dinero"),
+    HEALTH("Salud"),
+    FREETIME("Ocio y deporte"),
+    SOCIETY("Sociedad y medios"),
+    ABSTRACT("Conceptos")
+}
+
+/** Learning levels the user can choose; intermediates can skip ahead. */
+enum class Nivel(val number: Int, val cefr: String, val labelEs: String) {
+    UNO(1, "A1", "Principiante"),
+    DOS(2, "A2", "Básico"),
+    TRES(3, "B1", "Intermedio");
+
+    companion object {
+        fun of(number: Int): Nivel = entries.firstOrNull { it.number == number } ?: UNO
+    }
 }
 
 @Serializable
@@ -29,7 +54,9 @@ data class Word(
     val exampleDe: String,
     val exampleEs: String,
     val category: Category,
-    val level: String
+    val level: String,
+    /** 1..3; assigned by the repository from the asset file the word came from. */
+    val nivel: Int = 1
 ) {
     val isNoun: Boolean get() = article != null
 

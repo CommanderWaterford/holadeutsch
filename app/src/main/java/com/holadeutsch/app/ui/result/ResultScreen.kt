@@ -2,13 +2,17 @@ package com.holadeutsch.app.ui.result
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -19,6 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.holadeutsch.app.ui.AppViewModelProvider
+import com.holadeutsch.app.ui.components.ArticleText
+import com.holadeutsch.app.ui.components.SpeakerButton
 import com.holadeutsch.app.ui.components.TricolorBar
 
 @Composable
@@ -30,16 +38,17 @@ fun ResultScreen(
     streak: Int,
     perfect: Boolean,
     onPlayAgain: () -> Unit,
-    onHome: () -> Unit
+    onHome: () -> Unit,
+    viewModel: ResultViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     Scaffold { padding ->
         Column(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = when {
@@ -76,6 +85,43 @@ fun ResultScreen(
                     if (perfect) Text("Incluye +25 XP por sesión perfecta ⭐")
                     if (goalMet) Text("¡Meta diaria cumplida! +50 XP 🎯")
                     Text("🔥 Racha: $streak ${if (streak == 1) "día" else "días"}")
+                }
+            }
+
+            if (viewModel.wrongWords.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Para repasar",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            "Estas palabras volverán a aparecer mañana.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        HorizontalDivider()
+                        viewModel.wrongWords.forEach { word ->
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    ArticleText(word, style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        word.spanish,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                SpeakerButton(viewModel.tts.available) {
+                                    viewModel.speak(word.german)
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

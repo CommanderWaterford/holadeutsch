@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 class HomeViewModel(
-    statsRepository: StatsRepository,
+    private val statsRepository: StatsRepository,
     private val wordRepository: WordRepository,
     val tts: GermanTts
 ) : ViewModel() {
@@ -36,6 +36,10 @@ class HomeViewModel(
                 wordOfDay = words[(LocalDate.now().toEpochDay() % words.size).toInt()]
             }
         }
+    }
+
+    fun setNivel(nivel: Int) = viewModelScope.launch {
+        statsRepository.setSelectedNivel(nivel)
     }
 
     fun speak(text: String) = tts.speak(text)

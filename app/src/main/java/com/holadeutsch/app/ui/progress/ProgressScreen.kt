@@ -123,7 +123,7 @@ fun ProgressScreen(
             // Overall stats
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Estadísticas", style = MaterialTheme.typography.titleMedium)
+                    Text("Estadísticas · Nivel ${ui.stats.selectedNivel}", style = MaterialTheme.typography.titleMedium)
                     StatRow("Palabras dominadas", "${ui.masteredCount} / ${ui.totalWords}")
                     StatRow("Nivel", "${ui.stats.level} (${ui.stats.totalXp} XP)")
                     LinearProgressIndicator(
