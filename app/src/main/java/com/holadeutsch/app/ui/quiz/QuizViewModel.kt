@@ -1,5 +1,6 @@
 package com.holadeutsch.app.ui.quiz
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.holadeutsch.app.core.tts.GermanTts
@@ -39,6 +40,7 @@ data class QuizUiState(
 }
 
 class QuizViewModel(
+    savedStateHandle: SavedStateHandle,
     private val wordRepository: WordRepository,
     private val progressDao: ProgressDao,
     private val statsRepository: StatsRepository,
@@ -50,19 +52,29 @@ class QuizViewModel(
     val ui: StateFlow<QuizUiState> = _ui.asStateFlow()
 
     init {
+        // Optional "wordIds" nav argument: practice exactly these words (e.g. mistakes).
+        val onlyIds = savedStateHandle.get<String>("wordIds")
+            .orEmpty()
+            .split(",")
+            .mapNotNull { it.toIntOrNull() }
+            .toSet()
         viewModelScope.launch {
             val stats = statsRepository.stats.first()
-            val words = wordRepository.getWords(stats.selectedNivel)
+            val nivelWords = wordRepository.getWords(stats.selectedNivel)
+            val sessionWords =
+                if (onlyIds.isEmpty()) nivelWords
+                else wordRepository.getWords().filter { it.id in onlyIds }
             val progress = progressDao.getAllOnce().associateBy { it.wordId }
             _ui.update {
                 it.copy(
                     loading = false,
                     hapticsEnabled = stats.hapticsEnabled,
                     questions = engine.buildSession(
-                        words = words,
+                        words = sessionWords,
                         progress = progress,
                         today = LocalDate.now().toEpochDay(),
-                        size = SESSION_SIZE
+                        size = if (onlyIds.isEmpty()) SESSION_SIZE else sessionWords.size,
+                        distractorPool = nivelWords.ifEmpty { sessionWords }
                     )
                 )
             }

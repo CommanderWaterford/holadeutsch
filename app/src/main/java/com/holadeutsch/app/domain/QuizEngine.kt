@@ -38,7 +38,8 @@ class QuizEngine(private val random: Random = Random.Default) {
         words: List<Word>,
         progress: Map<Int, ProgressEntity>,
         today: Long,
-        size: Int = 10
+        size: Int = 10,
+        distractorPool: List<Word> = words
     ): List<Question> {
         val due = words
             .filter { progress[it.id]?.let { p -> p.repetitions > 0 && p.dueEpochDay <= today } == true }
@@ -50,7 +51,7 @@ class QuizEngine(private val random: Random = Random.Default) {
             .filter { progress[it.id]?.let { p -> p.repetitions > 0 && p.dueEpochDay > today } == true }
             .sortedBy { progress[it.id]?.dueEpochDay ?: Long.MAX_VALUE }
         val picked = (due + fresh + upcoming).take(minOf(size, words.size))
-        return picked.map { toQuestion(it, words) }
+        return picked.map { toQuestion(it, distractorPool) }
     }
 
     private fun toQuestion(word: Word, all: List<Word>): Question {

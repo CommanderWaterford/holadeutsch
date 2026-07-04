@@ -15,7 +15,10 @@ import com.holadeutsch.app.ui.result.ResultScreen
 
 object Routes {
     const val HOME = "home"
-    const val QUIZ = "quiz"
+    const val QUIZ = "quiz?wordIds={wordIds}"
+
+    /** Quiz over specific word ids (e.g. re-practice mistakes); "-" means a normal session. */
+    fun quiz(wordIds: String = "-") = "quiz?wordIds=$wordIds"
     const val BROWSE = "browse"
     const val PROGRESS = "progress"
     const val RESULT = "result/{correct}/{total}/{xp}/{goalMet}/{streak}/{perfect}/{wrongIds}"
@@ -40,13 +43,21 @@ fun HolaNavHost(navController: NavHostController = rememberNavController()) {
 
         composable(Routes.HOME) {
             HomeScreen(
-                onStartQuiz = { navController.navigate(Routes.QUIZ) },
+                onStartQuiz = { navController.navigate(Routes.quiz()) },
                 onBrowse = { navController.navigate(Routes.BROWSE) },
                 onProgress = { navController.navigate(Routes.PROGRESS) }
             )
         }
 
-        composable(Routes.QUIZ) {
+        composable(
+            route = Routes.QUIZ,
+            arguments = listOf(
+                navArgument("wordIds") {
+                    type = NavType.StringType
+                    defaultValue = "-"
+                }
+            )
+        ) {
             QuizScreen(
                 onFinished = { outcome, correct, total, wrongIds ->
                     navController.navigate(
@@ -80,6 +91,7 @@ fun HolaNavHost(navController: NavHostController = rememberNavController()) {
             )
         ) { entry ->
             val args = requireNotNull(entry.arguments)
+            val wrongIds = args.getString("wrongIds") ?: "-"
             ResultScreen(
                 correct = args.getInt("correct"),
                 total = args.getInt("total"),
@@ -88,7 +100,10 @@ fun HolaNavHost(navController: NavHostController = rememberNavController()) {
                 streak = args.getInt("streak"),
                 perfect = args.getBoolean("perfect"),
                 onPlayAgain = {
-                    navController.navigate(Routes.QUIZ) { popUpTo(Routes.HOME) }
+                    navController.navigate(Routes.quiz()) { popUpTo(Routes.HOME) }
+                },
+                onPracticeMistakes = {
+                    navController.navigate(Routes.quiz(wrongIds)) { popUpTo(Routes.HOME) }
                 },
                 onHome = { navController.popBackStack(Routes.HOME, inclusive = false) }
             )

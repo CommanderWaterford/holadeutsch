@@ -38,6 +38,7 @@ fun ResultScreen(
     streak: Int,
     perfect: Boolean,
     onPlayAgain: () -> Unit,
+    onPracticeMistakes: () -> Unit,
     onHome: () -> Unit,
     viewModel: ResultViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
@@ -126,8 +127,18 @@ fun ResultScreen(
             }
 
             Spacer(Modifier.height(24.dp))
-            Button(onClick = onPlayAgain, modifier = Modifier.fillMaxWidth()) {
-                Text("Otra ronda")
+            if (viewModel.wrongWords.isNotEmpty()) {
+                Button(onClick = onPracticeMistakes, modifier = Modifier.fillMaxWidth()) {
+                    Text("Practicar solo los fallos (${viewModel.wrongWords.size})")
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = onPlayAgain, modifier = Modifier.fillMaxWidth()) {
+                    Text("Otra ronda")
+                }
+            } else {
+                Button(onClick = onPlayAgain, modifier = Modifier.fillMaxWidth()) {
+                    Text("Otra ronda")
+                }
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = onHome, modifier = Modifier.fillMaxWidth()) {

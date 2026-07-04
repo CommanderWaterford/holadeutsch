@@ -22,7 +22,7 @@ object AppViewModelProvider {
         }
         initializer {
             val c = holaApp().container
-            QuizViewModel(c.wordRepository, c.progressDao, c.statsRepository, c.germanTts)
+            QuizViewModel(createSavedStateHandle(), c.wordRepository, c.progressDao, c.statsRepository, c.germanTts)
         }
         initializer {
             val c = holaApp().container
