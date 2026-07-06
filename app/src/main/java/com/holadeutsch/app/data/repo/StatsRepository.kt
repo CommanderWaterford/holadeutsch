@@ -25,6 +25,9 @@ data class Stats(
     val selectedNivel: Int = 1,
     val ttsEnabled: Boolean = true,
     val hapticsEnabled: Boolean = true,
+    val reminderEnabled: Boolean = false,
+    val reminderHour: Int = 19,
+    val reminderMinute: Int = 0,
     val activeDays: Set<Long> = emptySet()
 ) {
     val level: Int get() = floor(sqrt(totalXp / 100.0)).toInt() + 1
@@ -56,6 +59,9 @@ class StatsRepository(context: Context) {
         val NIVEL = intPreferencesKey("selected_nivel")
         val TTS = booleanPreferencesKey("tts_enabled")
         val HAPTICS = booleanPreferencesKey("haptics_enabled")
+        val REMINDER_ON = booleanPreferencesKey("reminder_enabled")
+        val REMINDER_HOUR = intPreferencesKey("reminder_hour")
+        val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
         val ACTIVE_DAYS = stringSetPreferencesKey("active_days")
     }
 
@@ -72,6 +78,9 @@ class StatsRepository(context: Context) {
             selectedNivel = (p[Keys.NIVEL] ?: 1).coerceIn(1, 3),
             ttsEnabled = p[Keys.TTS] ?: true,
             hapticsEnabled = p[Keys.HAPTICS] ?: true,
+            reminderEnabled = p[Keys.REMINDER_ON] ?: false,
+            reminderHour = (p[Keys.REMINDER_HOUR] ?: 19).coerceIn(0, 23),
+            reminderMinute = (p[Keys.REMINDER_MINUTE] ?: 0).coerceIn(0, 59),
             activeDays = (p[Keys.ACTIVE_DAYS] ?: emptySet()).mapNotNull { it.toLongOrNull() }.toSet()
         )
     }
@@ -128,6 +137,17 @@ class StatsRepository(context: Context) {
 
     suspend fun setHapticsEnabled(enabled: Boolean) {
         store.edit { it[Keys.HAPTICS] = enabled }
+    }
+
+    suspend fun setReminderEnabled(enabled: Boolean) {
+        store.edit { it[Keys.REMINDER_ON] = enabled }
+    }
+
+    suspend fun setReminderTime(hour: Int, minute: Int) {
+        store.edit {
+            it[Keys.REMINDER_HOUR] = hour.coerceIn(0, 23)
+            it[Keys.REMINDER_MINUTE] = minute.coerceIn(0, 59)
+        }
     }
 
     /** Clears XP, streak and activity, but keeps user settings (goal, TTS, haptics). */

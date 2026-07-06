@@ -30,7 +30,13 @@ object AppViewModelProvider {
         }
         initializer {
             val c = holaApp().container
-            ProgressViewModel(c.wordRepository, c.progressDao, c.statsRepository, c.germanTts)
+            ProgressViewModel(
+                c.wordRepository,
+                c.progressDao,
+                c.statsRepository,
+                c.reminderScheduler,
+                c.germanTts
+            )
         }
         initializer {
             val c = holaApp().container
