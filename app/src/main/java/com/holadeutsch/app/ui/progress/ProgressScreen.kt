@@ -199,9 +199,9 @@ fun ProgressScreen(
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Ajustes", style = MaterialTheme.typography.titleMedium)
-                    Text("Meta diaria (palabras)", style = MaterialTheme.typography.bodyMedium)
+                    Text("Palabras por día", style = MaterialTheme.typography.bodyMedium)
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        val goals = listOf(5, 10, 15, 20)
+                        val goals = listOf(10, 25, 50)
                         goals.forEachIndexed { index, goal ->
                             SegmentedButton(
                                 selected = ui.stats.dailyGoal == goal,

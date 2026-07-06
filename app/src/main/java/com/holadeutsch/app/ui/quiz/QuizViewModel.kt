@@ -73,7 +73,7 @@ class QuizViewModel(
                         words = sessionWords,
                         progress = progress,
                         today = LocalDate.now().toEpochDay(),
-                        size = if (onlyIds.isEmpty()) SESSION_SIZE else sessionWords.size,
+                        size = if (onlyIds.isEmpty()) stats.dailyGoal else sessionWords.size,
                         distractorPool = nivelWords.ifEmpty { sessionWords }
                     )
                 )
@@ -148,8 +148,4 @@ class QuizViewModel(
     }
 
     fun speak(text: String) = tts.speak(text)
-
-    companion object {
-        const val SESSION_SIZE = 10
-    }
 }
