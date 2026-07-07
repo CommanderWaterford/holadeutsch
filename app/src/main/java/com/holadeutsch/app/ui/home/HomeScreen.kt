@@ -18,6 +18,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -119,31 +120,50 @@ fun HomeScreen(
             }
 
             Card(Modifier.fillMaxWidth()) {
-                Row(
-                    Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    DailyGoalRing(
-                        progress = if (stats.dailyGoal > 0) {
-                            stats.wordsToday / stats.dailyGoal.toFloat()
-                        } else 0f,
-                        label = "${stats.wordsToday}/${stats.dailyGoal}"
-                    )
-                    Spacer(Modifier.width(16.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Meta diaria", style = MaterialTheme.typography.titleMedium)
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        DailyGoalRing(
+                            progress = if (stats.dailyGoal > 0) {
+                                stats.wordsToday / stats.dailyGoal.toFloat()
+                            } else 0f,
+                            label = "${stats.wordsToday}/${stats.dailyGoal}"
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Meta diaria", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "palabras practicadas hoy",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Button(
+                                onClick = onStartQuiz,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                            ) {
+                                Text("Empezar quiz", style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                    }
+                    HorizontalDivider()
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            "palabras practicadas hoy",
-                            style = MaterialTheme.typography.bodySmall,
+                            "Palabras por día",
+                            style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Button(
-                            onClick = onStartQuiz,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                        ) {
-                            Text("Empezar quiz", style = MaterialTheme.typography.titleMedium)
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                            val goals = listOf(10, 25, 50)
+                            goals.forEachIndexed { index, goal ->
+                                SegmentedButton(
+                                    selected = stats.dailyGoal == goal,
+                                    onClick = { viewModel.setDailyGoal(goal) },
+                                    shape = SegmentedButtonDefaults.itemShape(index, goals.size)
+                                ) {
+                                    Text("$goal")
+                                }
+                            }
                         }
                     }
                 }

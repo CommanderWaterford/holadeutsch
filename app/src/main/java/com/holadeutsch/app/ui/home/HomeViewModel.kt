@@ -42,5 +42,9 @@ class HomeViewModel(
         statsRepository.setSelectedNivel(nivel)
     }
 
+    fun setDailyGoal(goal: Int) = viewModelScope.launch {
+        statsRepository.setDailyGoal(goal)
+    }
+
     fun speak(text: String) = tts.speak(text)
 }
