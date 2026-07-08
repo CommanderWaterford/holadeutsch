@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.holadeutsch.app.domain.Streak
@@ -28,7 +29,9 @@ data class Stats(
     val reminderEnabled: Boolean = false,
     val reminderHour: Int = 19,
     val reminderMinute: Int = 0,
-    val activeDays: Set<Long> = emptySet()
+    val activeDays: Set<Long> = emptySet(),
+    val userName: String = "",
+    val onboardingDone: Boolean = false
 ) {
     val level: Int get() = floor(sqrt(totalXp / 100.0)).toInt() + 1
     private val levelStartXp: Int get() = (level - 1) * (level - 1) * 100
@@ -63,6 +66,8 @@ class StatsRepository(context: Context) {
         val REMINDER_HOUR = intPreferencesKey("reminder_hour")
         val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
         val ACTIVE_DAYS = stringSetPreferencesKey("active_days")
+        val USER_NAME = stringPreferencesKey("user_name")
+        val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
     }
 
     val stats: Flow<Stats> = store.data.map { p ->
@@ -81,7 +86,9 @@ class StatsRepository(context: Context) {
             reminderEnabled = p[Keys.REMINDER_ON] ?: false,
             reminderHour = (p[Keys.REMINDER_HOUR] ?: 19).coerceIn(0, 23),
             reminderMinute = (p[Keys.REMINDER_MINUTE] ?: 0).coerceIn(0, 59),
-            activeDays = (p[Keys.ACTIVE_DAYS] ?: emptySet()).mapNotNull { it.toLongOrNull() }.toSet()
+            activeDays = (p[Keys.ACTIVE_DAYS] ?: emptySet()).mapNotNull { it.toLongOrNull() }.toSet(),
+            userName = p[Keys.USER_NAME] ?: "",
+            onboardingDone = p[Keys.ONBOARDING_DONE] ?: false
         )
     }
 
@@ -125,6 +132,19 @@ class StatsRepository(context: Context) {
 
     suspend fun setDailyGoal(goal: Int) {
         store.edit { it[Keys.DAILY_GOAL] = goal }
+    }
+
+    suspend fun setUserName(name: String) {
+        store.edit { it[Keys.USER_NAME] = name.trim() }
+    }
+
+    /** Saves the first-run setup (name + daily goal) and marks onboarding as finished. */
+    suspend fun completeOnboarding(name: String, dailyGoal: Int) {
+        store.edit {
+            it[Keys.USER_NAME] = name.trim()
+            it[Keys.DAILY_GOAL] = dailyGoal
+            it[Keys.ONBOARDING_DONE] = true
+        }
     }
 
     suspend fun setSelectedNivel(nivel: Int) {

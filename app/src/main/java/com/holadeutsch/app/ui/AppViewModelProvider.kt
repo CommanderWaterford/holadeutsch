@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.holadeutsch.app.HolaDeutschApp
 import com.holadeutsch.app.ui.browse.BrowseViewModel
 import com.holadeutsch.app.ui.home.HomeViewModel
+import com.holadeutsch.app.ui.onboarding.OnboardingViewModel
 import com.holadeutsch.app.ui.progress.ProgressViewModel
 import com.holadeutsch.app.ui.quiz.QuizViewModel
 import com.holadeutsch.app.ui.result.ResultViewModel
@@ -19,6 +20,10 @@ object AppViewModelProvider {
         initializer {
             val c = holaApp().container
             HomeViewModel(c.statsRepository, c.wordRepository, c.germanTts)
+        }
+        initializer {
+            val c = holaApp().container
+            OnboardingViewModel(c.statsRepository)
         }
         initializer {
             val c = holaApp().container

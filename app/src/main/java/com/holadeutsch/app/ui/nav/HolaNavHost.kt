@@ -1,19 +1,29 @@
 package com.holadeutsch.app.ui.nav
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.holadeutsch.app.HolaDeutschApp
 import com.holadeutsch.app.ui.browse.WordListScreen
 import com.holadeutsch.app.ui.home.HomeScreen
+import com.holadeutsch.app.ui.onboarding.OnboardingScreen
 import com.holadeutsch.app.ui.progress.ProgressScreen
 import com.holadeutsch.app.ui.quiz.QuizScreen
 import com.holadeutsch.app.ui.result.ResultScreen
+import kotlinx.coroutines.flow.first
 
 object Routes {
+    const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val QUIZ = "quiz?wordIds={wordIds}"
 
@@ -39,7 +49,26 @@ object Routes {
 
 @Composable
 fun HolaNavHost(navController: NavHostController = rememberNavController()) {
-    NavHost(navController = navController, startDestination = Routes.HOME) {
+    val app = LocalContext.current.applicationContext as HolaDeutschApp
+    // Hold the NavHost until we know whether first-run setup has been completed.
+    var startDestination by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        val done = app.container.statsRepository.stats.first().onboardingDone
+        startDestination = if (done) Routes.HOME else Routes.ONBOARDING
+    }
+    val start = startDestination ?: return
+
+    NavHost(navController = navController, startDestination = start) {
+
+        composable(Routes.ONBOARDING) {
+            OnboardingScreen(
+                onDone = {
+                    navController.navigate(Routes.HOME) {
+                        popUpTo(Routes.ONBOARDING) { inclusive = true }
+                    }
+                }
+            )
+        }
 
         composable(Routes.HOME) {
             HomeScreen(

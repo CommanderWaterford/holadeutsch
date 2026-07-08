@@ -11,15 +11,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -29,8 +35,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,16 +74,22 @@ fun HomeScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    "HOLADEUTSCH",
-                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 3.sp),
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-                TricolorBar()
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Column(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        "HOLADEUTSCH",
+                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 3.sp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    TricolorBar()
+                }
+                HomeMenu(onProgress = onProgress)
             }
-            Text(greeting(), style = MaterialTheme.typography.headlineLarge)
+            Text(greeting(stats.userName), style = MaterialTheme.typography.headlineLarge)
             Text(
                 "Tus 100 palabras esenciales de alemán",
                 style = MaterialTheme.typography.bodyMedium,
@@ -218,8 +234,57 @@ fun HomeScreen(
     }
 }
 
-private fun greeting(): String = when (LocalTime.now().hour) {
-    in 5..11 -> "¡Buenos días!"
-    in 12..19 -> "¡Buenas tardes!"
-    else -> "¡Buenas noches!"
+private const val LEGAL_URL = "https://alemanbasico.com/aviso-legal"
+private const val PRIVACY_URL = "https://alemanbasico.com/politica-de-privacidad"
+
+/** Overflow menu: quick access to progress and the alemanbasico.com legal pages. */
+@Composable
+private fun HomeMenu(onProgress: () -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(Icons.Filled.MoreVert, contentDescription = "Menú")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("Mi progreso") },
+                leadingIcon = { Icon(Icons.Filled.Insights, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    onProgress()
+                }
+            )
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text("Aviso legal") },
+                leadingIcon = {
+                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
+                },
+                onClick = {
+                    expanded = false
+                    uriHandler.openUri(LEGAL_URL)
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Política de privacidad") },
+                leadingIcon = {
+                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
+                },
+                onClick = {
+                    expanded = false
+                    uriHandler.openUri(PRIVACY_URL)
+                }
+            )
+        }
+    }
+}
+
+private fun greeting(name: String): String {
+    val base = when (LocalTime.now().hour) {
+        in 5..11 -> "¡Buenos días"
+        in 12..19 -> "¡Buenas tardes"
+        else -> "¡Buenas noches"
+    }
+    return if (name.isBlank()) "$base!" else "$base, $name!"
 }
