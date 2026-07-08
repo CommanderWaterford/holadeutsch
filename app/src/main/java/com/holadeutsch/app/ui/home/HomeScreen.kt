@@ -60,6 +60,7 @@ fun HomeScreen(
     onStartQuiz: () -> Unit,
     onBrowse: () -> Unit,
     onProgress: () -> Unit,
+    onVocabLists: () -> Unit,
     viewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val stats by viewModel.stats.collectAsState()
@@ -87,7 +88,7 @@ fun HomeScreen(
                     )
                     TricolorBar()
                 }
-                HomeMenu(onProgress = onProgress)
+                HomeMenu(onProgress = onProgress, onVocabLists = onVocabLists)
             }
             Text(greeting(stats.userName), style = MaterialTheme.typography.headlineLarge)
             Text(
@@ -237,9 +238,9 @@ fun HomeScreen(
 private const val LEGAL_URL = "https://alemanbasico.com/aviso-legal"
 private const val PRIVACY_URL = "https://alemanbasico.com/politica-de-privacidad"
 
-/** Overflow menu: quick access to progress and the alemanbasico.com legal pages. */
+/** Overflow menu: quick access to progress, word lists and the alemanbasico.com legal pages. */
 @Composable
-private fun HomeMenu(onProgress: () -> Unit) {
+private fun HomeMenu(onProgress: () -> Unit, onVocabLists: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
     Box {
@@ -253,6 +254,16 @@ private fun HomeMenu(onProgress: () -> Unit) {
                 onClick = {
                     expanded = false
                     onProgress()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Listas de palabras") },
+                leadingIcon = {
+                    Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null)
+                },
+                onClick = {
+                    expanded = false
+                    onVocabLists()
                 }
             )
             HorizontalDivider()

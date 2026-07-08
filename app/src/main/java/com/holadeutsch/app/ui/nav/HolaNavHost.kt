@@ -20,10 +20,12 @@ import com.holadeutsch.app.ui.onboarding.OnboardingScreen
 import com.holadeutsch.app.ui.progress.ProgressScreen
 import com.holadeutsch.app.ui.quiz.QuizScreen
 import com.holadeutsch.app.ui.result.ResultScreen
+import com.holadeutsch.app.ui.vocab.VocabListsScreen
 import kotlinx.coroutines.flow.first
 
 object Routes {
     const val ONBOARDING = "onboarding"
+    const val VOCAB = "vocab"
     const val HOME = "home"
     const val QUIZ = "quiz?wordIds={wordIds}"
 
@@ -74,8 +76,13 @@ fun HolaNavHost(navController: NavHostController = rememberNavController()) {
             HomeScreen(
                 onStartQuiz = { navController.navigate(Routes.quiz()) },
                 onBrowse = { navController.navigate(Routes.BROWSE) },
-                onProgress = { navController.navigate(Routes.PROGRESS) }
+                onProgress = { navController.navigate(Routes.PROGRESS) },
+                onVocabLists = { navController.navigate(Routes.VOCAB) }
             )
+        }
+
+        composable(Routes.VOCAB) {
+            VocabListsScreen(onBack = { navController.popBackStack() })
         }
 
         composable(

@@ -13,6 +13,7 @@ import com.holadeutsch.app.ui.onboarding.OnboardingViewModel
 import com.holadeutsch.app.ui.progress.ProgressViewModel
 import com.holadeutsch.app.ui.quiz.QuizViewModel
 import com.holadeutsch.app.ui.result.ResultViewModel
+import com.holadeutsch.app.ui.vocab.VocabViewModel
 
 /** Central ViewModel factory wired to the app's manual DI container. */
 object AppViewModelProvider {
@@ -24,6 +25,10 @@ object AppViewModelProvider {
         initializer {
             val c = holaApp().container
             OnboardingViewModel(c.statsRepository)
+        }
+        initializer {
+            val c = holaApp().container
+            VocabViewModel(c.wordRepository, c.germanTts)
         }
         initializer {
             val c = holaApp().container
