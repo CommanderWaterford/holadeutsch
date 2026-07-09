@@ -27,6 +27,7 @@ data class QuizUiState(
     val index: Int = 0,
     val selectedIndex: Int? = null,
     val typedInput: String = "",
+    val hint: String? = null,
     val lastResult: AnswerResult? = null,
     val correctCount: Int = 0,
     val xp: Int = 0,
@@ -82,6 +83,14 @@ class QuizViewModel(
     }
 
     fun onTypedChange(value: String) = _ui.update { it.copy(typedInput = value) }
+
+    /** Reveals a few letters of the current typed answer; one hint per question. */
+    fun revealHint() {
+        val state = _ui.value
+        if (state.answered || state.hint != null) return
+        val q = state.current as? Question.Typed ?: return
+        _ui.update { it.copy(hint = engine.buildHint(q.word)) }
+    }
 
     fun answerChoice(optionIndex: Int) {
         val state = _ui.value
@@ -142,7 +151,13 @@ class QuizViewModel(
             }
         } else {
             _ui.update {
-                it.copy(index = it.index + 1, selectedIndex = null, typedInput = "", lastResult = null)
+                it.copy(
+                    index = it.index + 1,
+                    selectedIndex = null,
+                    typedInput = "",
+                    hint = null,
+                    lastResult = null
+                )
             }
         }
     }

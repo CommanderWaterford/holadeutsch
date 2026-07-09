@@ -98,7 +98,48 @@ class QuizEngineTest {
         }
     }
 
-    private fun word(id: Int, german: String, spanish: String, article: String?, category: Category) =
+    @Test
+    fun `new words are introduced easiest first`() {
+        val mixed = listOf(
+            word(1, "die Möglichkeit", "la posibilidad", "die", Category.ABSTRACT, level = "A1"),
+            word(2, "ja", "sí", null, Category.GREETINGS, level = "A0"),
+            word(3, "das Wasser", "el agua", "das", Category.FOOD, level = "A1"),
+            word(4, "danke", "gracias", null, Category.GREETINGS, level = "A0")
+        )
+        repeat(20) { seed ->
+            val session = QuizEngine(Random(seed)).buildSession(mixed, emptyMap(), today = 100, size = 4)
+            // A0 before A1, shorter words first within the same level.
+            assertEquals(listOf(2, 4, 3, 1), session.map { it.word.id })
+        }
+    }
+
+    @Test
+    fun `hint reveals a few letters in place and never the whole word`() {
+        val haus = words[0] // "das Haus" -> answer "Haus"
+        repeat(20) { seed ->
+            val hint = QuizEngine(Random(seed)).buildHint(haus).split(" ")
+            assertEquals(4, hint.size)
+            // 4-letter word: exactly 2 letters revealed, at their original positions.
+            assertEquals(2, hint.count { it != "_" })
+            hint.forEachIndexed { i, part ->
+                if (part != "_") assertEquals("Haus"[i].toString(), part)
+            }
+        }
+        // Two-letter words keep at least one letter hidden.
+        val ja = word(99, "ja", "sí", null, Category.GREETINGS)
+        repeat(20) { seed ->
+            assertEquals(1, QuizEngine(Random(seed)).buildHint(ja).split(" ").count { it == "_" })
+        }
+    }
+
+    private fun word(
+        id: Int,
+        german: String,
+        spanish: String,
+        article: String?,
+        category: Category,
+        level: String = "A0"
+    ) =
         Word(
             id = id,
             german = german,
@@ -108,6 +149,6 @@ class QuizEngineTest {
             exampleDe = "Beispiel.",
             exampleEs = "Ejemplo.",
             category = category,
-            level = "A0"
+            level = level
         )
 }

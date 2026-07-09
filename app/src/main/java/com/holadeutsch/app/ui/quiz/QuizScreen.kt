@@ -34,6 +34,7 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,6 +46,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.holadeutsch.app.data.repo.SessionOutcome
@@ -162,6 +164,16 @@ private fun QuizContent(
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(onDone = { viewModel.submitTyped() })
                         )
+                        ui.hint?.let { hint ->
+                            Text(
+                                hint,
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                         if (!ui.answered) {
                             Button(
                                 onClick = viewModel::submitTyped,
@@ -169,6 +181,14 @@ private fun QuizContent(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text("Comprobar")
+                            }
+                            if (ui.hint == null) {
+                                TextButton(
+                                    onClick = viewModel::revealHint,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("💡 Dame una pista")
+                                }
                             }
                         }
                     }

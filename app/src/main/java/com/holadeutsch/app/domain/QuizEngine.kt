@@ -29,7 +29,7 @@ sealed interface Question {
 
 /**
  * Pure question generator + answer checker. Word selection follows SuperMemo-2:
- * words due for review come first, then unseen words in curriculum order, then
+ * words due for review come first, then unseen words easiest-first, then
  * the words whose review is closest. Distractors prefer same-category words.
  */
 class QuizEngine(private val random: Random = Random.Default) {
@@ -44,9 +44,11 @@ class QuizEngine(private val random: Random = Random.Default) {
         val due = words
             .filter { progress[it.id]?.let { p -> p.repetitions > 0 && p.dueEpochDay <= today } == true }
             .shuffled(random)
+        // CEFR sub-levels ("A0" < "A1" < "A2" < "B1") sort lexicographically,
+        // so unseen words ramp up from the easiest level, shortest words first.
         val fresh = words
             .filter { (progress[it.id]?.repetitions ?: 0) == 0 }
-            .sortedBy { it.id }
+            .sortedWith(compareBy({ it.level }, { it.germanBare.length }, { it.id }))
         val upcoming = words
             .filter { progress[it.id]?.let { p -> p.repetitions > 0 && p.dueEpochDay > today } == true }
             .sortedBy { progress[it.id]?.dueEpochDay ?: Long.MAX_VALUE }
@@ -78,6 +80,22 @@ class QuizEngine(private val random: Random = Random.Default) {
             .take(3)
         val options = (distractors + correct).shuffled(random)
         return Question.MultipleChoice(word, direction, options, options.indexOf(correct))
+    }
+
+    /**
+     * Masked answer with a few letters revealed, e.g. "H _ u _" for "Haus".
+     * Reveals 2 letters (3 for words longer than 4 letters) but never the whole word.
+     */
+    fun buildHint(word: Word): String {
+        val answer = word.germanBare
+        val letters = answer.indices.filter { answer[it].isLetter() }
+        val reveal = (if (letters.size <= 4) 2 else 3)
+            .coerceAtMost(letters.size - 1)
+            .coerceAtLeast(1)
+        val shown = letters.shuffled(random).take(reveal).toSet()
+        return answer
+            .mapIndexed { i, c -> if (i in shown || !c.isLetter()) c else '_' }
+            .joinToString(" ")
     }
 
     /**
