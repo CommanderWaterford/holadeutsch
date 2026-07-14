@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.holadeutsch.app.domain.RewardPolicy
+import com.holadeutsch.app.domain.SessionAnswer
 import com.holadeutsch.app.domain.Streak
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -30,6 +32,7 @@ data class Stats(
     val reminderHour: Int = 19,
     val reminderMinute: Int = 0,
     val activeDays: Set<Long> = emptySet(),
+    val rewardedWordIdsToday: Set<Int> = emptySet(),
     val userName: String = "",
     val onboardingDone: Boolean = false
 ) {
@@ -59,6 +62,8 @@ class StatsRepository(context: Context) {
         val DAILY_GOAL = intPreferencesKey("daily_goal")
         val WORDS_TODAY = intPreferencesKey("words_today")
         val WORDS_DAY = longPreferencesKey("words_day")
+        val PRACTICED_WORD_IDS = stringSetPreferencesKey("practiced_word_ids")
+        val REWARDED_WORD_IDS = stringSetPreferencesKey("rewarded_word_ids")
         val NIVEL = intPreferencesKey("selected_nivel")
         val TTS = booleanPreferencesKey("tts_enabled")
         val HAPTICS = booleanPreferencesKey("haptics_enabled")
@@ -73,13 +78,14 @@ class StatsRepository(context: Context) {
     val stats: Flow<Stats> = store.data.map { p ->
         val today = LocalDate.now().toEpochDay()
         val lastActive = p[Keys.LAST_ACTIVE] ?: 0L
+        val isToday = (p[Keys.WORDS_DAY] ?: -1L) == today
         Stats(
             totalXp = p[Keys.TOTAL_XP] ?: 0,
             // A streak is only alive if the user practiced today or yesterday.
             streak = if (lastActive >= today - 1) (p[Keys.STREAK] ?: 0) else 0,
             longestStreak = p[Keys.LONGEST] ?: 0,
             dailyGoal = p[Keys.DAILY_GOAL] ?: 10,
-            wordsToday = if ((p[Keys.WORDS_DAY] ?: -1L) == today) (p[Keys.WORDS_TODAY] ?: 0) else 0,
+            wordsToday = if (isToday) (p[Keys.WORDS_TODAY] ?: 0) else 0,
             selectedNivel = (p[Keys.NIVEL] ?: 1).coerceIn(1, 3),
             ttsEnabled = p[Keys.TTS] ?: true,
             hapticsEnabled = p[Keys.HAPTICS] ?: true,
@@ -87,16 +93,21 @@ class StatsRepository(context: Context) {
             reminderHour = (p[Keys.REMINDER_HOUR] ?: 19).coerceIn(0, 23),
             reminderMinute = (p[Keys.REMINDER_MINUTE] ?: 0).coerceIn(0, 59),
             activeDays = (p[Keys.ACTIVE_DAYS] ?: emptySet()).mapNotNull { it.toLongOrNull() }.toSet(),
+            rewardedWordIdsToday = if (isToday) {
+                (p[Keys.REWARDED_WORD_IDS] ?: emptySet()).mapNotNull { it.toIntOrNull() }.toSet()
+            } else {
+                emptySet()
+            },
             userName = p[Keys.USER_NAME] ?: "",
             onboardingDone = p[Keys.ONBOARDING_DONE] ?: false
         )
     }
 
     /**
-     * Records a finished quiz session: streak, daily goal and XP (incl. bonuses).
-     * @param baseXp XP earned from individual answers (10 per correct, 5 per partial).
+     * Records a finished quiz session. Each distinct word counts toward today's goal once,
+     * and each successfully answered word awards answer XP at most once per day.
      */
-    suspend fun completeSession(correct: Int, total: Int, baseXp: Int): SessionOutcome {
+    suspend fun completeSession(answers: List<SessionAnswer>): SessionOutcome {
         var outcome = SessionOutcome(0, goalJustMet = false, perfect = false, streak = 0)
         store.edit { p ->
             val today = LocalDate.now().toEpochDay()
@@ -105,16 +116,33 @@ class StatsRepository(context: Context) {
             p[Keys.LONGEST] = maxOf(streak, p[Keys.LONGEST] ?: 0)
             p[Keys.LAST_ACTIVE] = today
 
-            val goal = p[Keys.DAILY_GOAL] ?: 10
-            val before = if ((p[Keys.WORDS_DAY] ?: -1L) == today) (p[Keys.WORDS_TODAY] ?: 0) else 0
-            val after = before + total
-            p[Keys.WORDS_TODAY] = after
+            val isToday = (p[Keys.WORDS_DAY] ?: -1L) == today
+            val practicedBefore = if (isToday) {
+                (p[Keys.PRACTICED_WORD_IDS] ?: emptySet()).mapNotNull { it.toIntOrNull() }.toSet()
+            } else {
+                emptySet()
+            }
+            val rewardedBefore = if (isToday) {
+                (p[Keys.REWARDED_WORD_IDS] ?: emptySet()).mapNotNull { it.toIntOrNull() }.toSet()
+            } else {
+                emptySet()
+            }
+            val reward = RewardPolicy.evaluate(answers, rewardedBefore)
+            val practicedAfter = practicedBefore + reward.practicedWordIds
+            val rewardedAfter = rewardedBefore + reward.newlyRewardedWordIds
+
+            p[Keys.PRACTICED_WORD_IDS] = practicedAfter.mapTo(mutableSetOf()) { it.toString() }
+            p[Keys.REWARDED_WORD_IDS] = rewardedAfter.mapTo(mutableSetOf()) { it.toString() }
+            p[Keys.WORDS_TODAY] = practicedAfter.size
             p[Keys.WORDS_DAY] = today
 
+            val goal = p[Keys.DAILY_GOAL] ?: 10
+            val before = practicedBefore.size
+            val after = practicedAfter.size
             val goalJustMet = before < goal && after >= goal
-            val perfect = total > 0 && correct == total
-            var xp = baseXp
-            if (perfect) xp += 25
+            var xp = reward.answerXp
+            // A repeated perfect round over already-rewarded words cannot farm this bonus.
+            if (reward.perfect && reward.newlyRewardedWordIds.isNotEmpty()) xp += 25
             if (goalJustMet) xp += 50
             p[Keys.TOTAL_XP] = (p[Keys.TOTAL_XP] ?: 0) + xp
 
@@ -125,7 +153,7 @@ class StatsRepository(context: Context) {
                 .map { it.toString() }
                 .toSet()
 
-            outcome = SessionOutcome(xp, goalJustMet, perfect, streak)
+            outcome = SessionOutcome(xp, goalJustMet, reward.perfect, streak)
         }
         return outcome
     }
@@ -138,11 +166,19 @@ class StatsRepository(context: Context) {
         store.edit { it[Keys.USER_NAME] = name.trim() }
     }
 
-    /** Saves the first-run setup (name + daily goal) and marks onboarding as finished. */
-    suspend fun completeOnboarding(name: String, dailyGoal: Int) {
+    /**
+     * Saves the first-run setup and the notification choice in one transaction.
+     * Reminders are enabled only after Android has granted notification permission.
+     */
+    suspend fun completeOnboarding(
+        name: String,
+        dailyGoal: Int,
+        reminderEnabled: Boolean = false
+    ) {
         store.edit {
             it[Keys.USER_NAME] = name.trim()
             it[Keys.DAILY_GOAL] = dailyGoal
+            it[Keys.REMINDER_ON] = reminderEnabled
             it[Keys.ONBOARDING_DONE] = true
         }
     }
@@ -179,6 +215,8 @@ class StatsRepository(context: Context) {
             p -= Keys.LAST_ACTIVE
             p -= Keys.WORDS_TODAY
             p -= Keys.WORDS_DAY
+            p -= Keys.PRACTICED_WORD_IDS
+            p -= Keys.REWARDED_WORD_IDS
             p -= Keys.ACTIVE_DAYS
         }
     }

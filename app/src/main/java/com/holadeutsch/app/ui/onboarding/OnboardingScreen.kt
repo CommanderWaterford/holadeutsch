@@ -1,5 +1,10 @@
 package com.holadeutsch.app.ui.onboarding
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,12 +31,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.content.ContextCompat
 import com.holadeutsch.app.ui.AppViewModelProvider
 import com.holadeutsch.app.ui.components.TricolorBar
 
@@ -43,6 +50,27 @@ fun OnboardingScreen(
     onDone: () -> Unit,
     viewModel: OnboardingViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.finish(notificationPermissionGranted = granted, onDone = onDone)
+    }
+
+    fun finishSetup() {
+        val needsRuntimePermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        val permissionGranted = !needsRuntimePermission || ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (permissionGranted) {
+            viewModel.finish(notificationPermissionGranted = true, onDone = onDone)
+        } else {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     Scaffold { padding ->
         Column(
             Modifier
@@ -107,7 +135,7 @@ fun OnboardingScreen(
             Spacer(Modifier.weight(1f))
 
             Button(
-                onClick = { viewModel.finish(onDone) },
+                onClick = ::finishSetup,
                 enabled = viewModel.canFinish,
                 modifier = Modifier
                     .fillMaxWidth()

@@ -132,6 +132,52 @@ class QuizEngineTest {
         }
     }
 
+    @Test
+    fun `sentence builder shuffles tokens and preserves the correct order`() {
+        val sentenceWord = words[0].copy(
+            exampleDe = "Das Haus ist sehr groß.",
+            exampleEs = "La casa es muy grande."
+        )
+        repeat(20) { seed ->
+            val quizEngine = QuizEngine(Random(seed))
+            val question = requireNotNull(quizEngine.buildSentenceQuestion(sentenceWord))
+            assertEquals(
+                listOf("Das", "Haus", "ist", "sehr", "groß."),
+                question.tokens.map { it.text }
+            )
+            assertTrue(
+                "word bank must not begin already solved",
+                question.shuffledTokens.map { it.id } != question.tokens.map { it.id }
+            )
+            assertEquals(
+                question.tokens.map { it.id }.sorted(),
+                question.shuffledTokens.map { it.id }.sorted()
+            )
+        }
+    }
+
+    @Test
+    fun `sentence builder gives full credit first try and partial after an error`() {
+        val quizEngine = QuizEngine(Random(1))
+        val question = requireNotNull(
+            quizEngine.buildSentenceQuestion(words[0].copy(exampleDe = "Das ist gut."))
+        )
+        val correctOrder = question.tokens.map { it.id }
+
+        assertEquals(
+            AnswerResult.WRONG,
+            quizEngine.checkSentence(question, correctOrder.reversed(), hadPreviousError = false)
+        )
+        assertEquals(
+            AnswerResult.CORRECT,
+            quizEngine.checkSentence(question, correctOrder, hadPreviousError = false)
+        )
+        assertEquals(
+            AnswerResult.PARTIAL,
+            quizEngine.checkSentence(question, correctOrder, hadPreviousError = true)
+        )
+    }
+
     private fun word(
         id: Int,
         german: String,

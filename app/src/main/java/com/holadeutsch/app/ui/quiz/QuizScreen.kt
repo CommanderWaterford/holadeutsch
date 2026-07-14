@@ -1,5 +1,7 @@
 package com.holadeutsch.app.ui.quiz
 
+import android.media.AudioManager
+import android.media.ToneGenerator
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -8,9 +10,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,13 +43,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -53,12 +63,14 @@ import com.holadeutsch.app.data.repo.SessionOutcome
 import com.holadeutsch.app.domain.AnswerResult
 import com.holadeutsch.app.domain.Direction
 import com.holadeutsch.app.domain.Question
+import com.holadeutsch.app.domain.SentenceToken
 import com.holadeutsch.app.ui.AppViewModelProvider
 import com.holadeutsch.app.ui.components.ArticleText
 import com.holadeutsch.app.ui.components.SpeakerButton
 import com.holadeutsch.app.ui.components.articleColor
 import com.holadeutsch.app.ui.components.correctColor
 import com.holadeutsch.app.ui.components.partialColor
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +81,7 @@ fun QuizScreen(
 ) {
     val ui by viewModel.ui.collectAsState()
     val haptic = LocalHapticFeedback.current
+    SuccessSoundEffect(ui.successSoundEvent)
 
     LaunchedEffect(ui.outcome) {
         ui.outcome?.let { onFinished(it, ui.correctCount, ui.questions.size, ui.wrongWordIds) }
@@ -192,6 +205,15 @@ private fun QuizContent(
                             }
                         }
                     }
+
+                    is Question.SentenceBuilder -> SentenceBuilderContent(
+                        question = q,
+                        ui = ui,
+                        onAdd = viewModel::addSentenceToken,
+                        onRemove = viewModel::removeSentenceToken,
+                        onMove = viewModel::moveSentenceToken,
+                        onSubmit = viewModel::submitSentence
+                    )
                 }
             }
         }
@@ -264,8 +286,166 @@ private fun PromptCard(question: Question, viewModel: QuizViewModel) {
                         )
                     }
                 }
+
+                is Question.SentenceBuilder -> {
+                    Text(
+                        "Ordena la frase en alemán",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        question.word.exampleEs,
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SentenceBuilderContent(
+    question: Question.SentenceBuilder,
+    ui: QuizUiState,
+    onAdd: (Int) -> Unit,
+    onRemove: (Int) -> Unit,
+    onMove: (Int, Int) -> Unit,
+    onSubmit: () -> Unit
+) {
+    val tokensById = question.tokens.associateBy { it.id }
+    val selected = ui.sentenceTokenIds.mapNotNull(tokensById::get)
+    val selectedIds = ui.sentenceTokenIds.toSet()
+    val available = question.shuffledTokens.filter { it.id !in selectedIds }
+
+    Text(
+        "Toca las palabras para añadirlas. Mantén pulsada una palabra colocada y arrástrala para reordenar.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        border = BorderStroke(
+            1.5.dp,
+            if (ui.sentenceError) MaterialTheme.colorScheme.error
+            else MaterialTheme.colorScheme.outline
+        )
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Tu frase", style = MaterialTheme.typography.labelLarge)
+            if (selected.isEmpty()) {
+                Text(
+                    "Selecciona la primera palabra…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    selected.forEachIndexed { index, token ->
+                        SentenceTokenChip(
+                            token = token,
+                            index = index,
+                            lastIndex = selected.lastIndex,
+                            enabled = !ui.answered,
+                            onRemove = { onRemove(token.id) },
+                            onMove = onMove
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (ui.sentenceError) {
+        Text(
+            "El orden todavía no es correcto. Ajusta las palabras e inténtalo otra vez.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error
+        )
+    }
+
+    if (!ui.answered) {
+        Text("Palabras disponibles", style = MaterialTheme.typography.labelLarge)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            available.forEach { token ->
+                AssistChip(
+                    onClick = { onAdd(token.id) },
+                    label = { Text(token.text) }
+                )
+            }
+        }
+        Button(
+            onClick = onSubmit,
+            enabled = selected.size == question.tokens.size,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Comprobar frase")
+        }
+    }
+}
+
+@Composable
+private fun SentenceTokenChip(
+    token: SentenceToken,
+    index: Int,
+    lastIndex: Int,
+    enabled: Boolean,
+    onRemove: () -> Unit,
+    onMove: (Int, Int) -> Unit
+) {
+    val thresholdPx = with(LocalDensity.current) { 48.dp.toPx() }
+    AssistChip(
+        onClick = { if (enabled) onRemove() },
+        enabled = enabled,
+        modifier = Modifier.pointerInput(token.id, index, enabled) {
+            if (!enabled) return@pointerInput
+            var accumulated = 0f
+            detectDragGesturesAfterLongPress(
+                onDragStart = { accumulated = 0f },
+                onDrag = { change, dragAmount ->
+                    change.consume()
+                    accumulated += if (abs(dragAmount.x) >= abs(dragAmount.y)) {
+                        dragAmount.x
+                    } else {
+                        dragAmount.y
+                    }
+                    when {
+                        accumulated > thresholdPx && index < lastIndex -> {
+                            onMove(index, index + 1)
+                            accumulated = 0f
+                        }
+                        accumulated < -thresholdPx && index > 0 -> {
+                            onMove(index, index - 1)
+                            accumulated = 0f
+                        }
+                    }
+                }
+            )
+        },
+        label = { Text(token.text) }
+    )
+}
+
+@Composable
+private fun SuccessSoundEffect(event: Int) {
+    val tone = remember {
+        runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 70) }.getOrNull()
+    }
+    DisposableEffect(tone) {
+        onDispose { tone?.release() }
+    }
+    LaunchedEffect(event) {
+        if (event > 0) tone?.startTone(ToneGenerator.TONE_PROP_ACK, 220)
     }
 }
 
@@ -317,8 +497,14 @@ private fun FeedbackPanel(
     viewModel: QuizViewModel
 ) {
     val (title, color) = when (result) {
-        AnswerResult.CORRECT -> "¡Correcto! +10 XP" to correctColor()
-        AnswerResult.PARTIAL -> "¡Casi! Pequeño error de escritura. +5 XP" to partialColor()
+        AnswerResult.CORRECT -> {
+            val reward = if (ui.lastAwardedXp > 0) "+${ui.lastAwardedXp} XP" else "repaso"
+            "¡Correcto! $reward" to correctColor()
+        }
+        AnswerResult.PARTIAL -> {
+            val reward = if (ui.lastAwardedXp > 0) "+${ui.lastAwardedXp} XP" else "repaso"
+            "¡Casi! Pequeño error de escritura. $reward" to partialColor()
+        }
         AnswerResult.WRONG -> "Incorrecto" to MaterialTheme.colorScheme.error
     }
     Card(
@@ -359,4 +545,5 @@ private fun correctAnswerText(question: Question): String = when (question) {
     is Question.MultipleChoice -> question.options[question.correctIndex]
     is Question.ArticleChoice -> "${question.word.article} (${question.word.german})"
     is Question.Typed -> question.word.german
+    is Question.SentenceBuilder -> question.word.exampleDe
 }

@@ -92,7 +92,7 @@ fun HomeScreen(
             }
             Text(greeting(stats.userName), style = MaterialTheme.typography.headlineLarge)
             Text(
-                "Tus 100 palabras esenciales de alemán",
+                "Tus 1.000 palabras esenciales de alemán",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

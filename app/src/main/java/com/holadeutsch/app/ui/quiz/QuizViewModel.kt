@@ -12,6 +12,8 @@ import com.holadeutsch.app.data.repo.WordRepository
 import com.holadeutsch.app.domain.AnswerResult
 import com.holadeutsch.app.domain.Question
 import com.holadeutsch.app.domain.QuizEngine
+import com.holadeutsch.app.domain.RewardPolicy
+import com.holadeutsch.app.domain.SessionAnswer
 import com.holadeutsch.app.domain.Sm2
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,7 +32,13 @@ data class QuizUiState(
     val hint: String? = null,
     val lastResult: AnswerResult? = null,
     val correctCount: Int = 0,
-    val xp: Int = 0,
+    val answers: List<SessionAnswer> = emptyList(),
+    val rewardedWordIdsToday: Set<Int> = emptySet(),
+    val lastAwardedXp: Int = 0,
+    val sentenceTokenIds: List<Int> = emptyList(),
+    val sentenceHadError: Boolean = false,
+    val sentenceError: Boolean = false,
+    val successSoundEvent: Int = 0,
     val wrongWordIds: List<Int> = emptyList(),
     val outcome: SessionOutcome? = null,
     val hapticsEnabled: Boolean = true
@@ -70,11 +78,12 @@ class QuizViewModel(
                 it.copy(
                     loading = false,
                     hapticsEnabled = stats.hapticsEnabled,
+                    rewardedWordIdsToday = stats.rewardedWordIdsToday,
                     questions = engine.buildSession(
                         words = sessionWords,
                         progress = progress,
                         today = LocalDate.now().toEpochDay(),
-                        size = if (onlyIds.isEmpty()) stats.dailyGoal else sessionWords.size,
+                        size = if (onlyIds.isEmpty()) normalSessionSize(stats) else sessionWords.size,
                         distractorPool = nivelWords.ifEmpty { sessionWords }
                     )
                 )
@@ -113,20 +122,74 @@ class QuizViewModel(
         applyResult(engine.checkTyped(q.word, state.typedInput), null)
     }
 
+    fun addSentenceToken(tokenId: Int) = _ui.update { state ->
+        val question = state.current as? Question.SentenceBuilder ?: return@update state
+        if (state.answered || tokenId in state.sentenceTokenIds ||
+            question.tokens.none { it.id == tokenId }
+        ) {
+            state
+        } else {
+            state.copy(
+                sentenceTokenIds = state.sentenceTokenIds + tokenId,
+                sentenceError = false
+            )
+        }
+    }
+
+    fun removeSentenceToken(tokenId: Int) = _ui.update { state ->
+        if (state.answered) state else state.copy(
+            sentenceTokenIds = state.sentenceTokenIds - tokenId,
+            sentenceError = false
+        )
+    }
+
+    fun moveSentenceToken(from: Int, to: Int) = _ui.update { state ->
+        if (state.answered || from !in state.sentenceTokenIds.indices ||
+            to !in state.sentenceTokenIds.indices || from == to
+        ) {
+            state
+        } else {
+            val reordered = state.sentenceTokenIds.toMutableList().apply {
+                add(to, removeAt(from))
+            }
+            state.copy(sentenceTokenIds = reordered, sentenceError = false)
+        }
+    }
+
+    fun submitSentence() {
+        val state = _ui.value
+        val question = state.current as? Question.SentenceBuilder ?: return
+        if (state.answered || state.sentenceTokenIds.size != question.tokens.size) return
+
+        val result = engine.checkSentence(question, state.sentenceTokenIds, state.sentenceHadError)
+        if (result == AnswerResult.WRONG) {
+            _ui.update { it.copy(sentenceHadError = true, sentenceError = true) }
+            return
+        }
+
+        val firstAttempt = result == AnswerResult.CORRECT
+        if (firstAttempt) {
+            _ui.update { it.copy(successSoundEvent = it.successSoundEvent + 1) }
+        }
+        applyResult(result = result, selectedIndex = null)
+    }
+
     private fun applyResult(result: AnswerResult, selectedIndex: Int?) {
         val q = _ui.value.current ?: return
         val counted = result != AnswerResult.WRONG
+        val alreadyRewarded = q.word.id in _ui.value.rewardedWordIdsToday ||
+            _ui.value.answers.any {
+                it.wordId == q.word.id && it.result != AnswerResult.WRONG
+            }
+        val awardedXp = if (alreadyRewarded) 0 else RewardPolicy.answerXp(result)
         _ui.update {
             it.copy(
                 lastResult = result,
                 selectedIndex = selectedIndex,
+                lastAwardedXp = awardedXp,
                 correctCount = it.correctCount + if (counted) 1 else 0,
                 wrongWordIds = if (counted) it.wrongWordIds else it.wrongWordIds + q.word.id,
-                xp = it.xp + when (result) {
-                    AnswerResult.CORRECT -> 10
-                    AnswerResult.PARTIAL -> 5
-                    AnswerResult.WRONG -> 0
-                }
+                answers = it.answers + SessionAnswer(q.word.id, result)
             )
         }
         viewModelScope.launch {
@@ -143,9 +206,7 @@ class QuizViewModel(
         if (state.isLast) {
             viewModelScope.launch {
                 val outcome = statsRepository.completeSession(
-                    correct = state.correctCount,
-                    total = state.questions.size,
-                    baseXp = state.xp
+                    answers = state.answers
                 )
                 _ui.update { it.copy(outcome = outcome) }
             }
@@ -156,11 +217,25 @@ class QuizViewModel(
                     selectedIndex = null,
                     typedInput = "",
                     hint = null,
-                    lastResult = null
+                    lastResult = null,
+                    lastAwardedXp = 0,
+                    sentenceTokenIds = emptyList(),
+                    sentenceHadError = false,
+                    sentenceError = false
                 )
             }
         }
     }
 
     fun speak(text: String) = tts.speak(text)
+
+    companion object {
+        const val DEFAULT_SESSION_SIZE = 10
+
+        /** Finishes the remaining daily target without creating marathon sessions. */
+        fun normalSessionSize(stats: com.holadeutsch.app.data.repo.Stats): Int {
+            val remaining = (stats.dailyGoal - stats.wordsToday).coerceAtLeast(0)
+            return if (remaining == 0) DEFAULT_SESSION_SIZE else minOf(DEFAULT_SESSION_SIZE, remaining)
+        }
+    }
 }

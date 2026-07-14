@@ -14,7 +14,7 @@ import com.holadeutsch.app.data.repo.Stats
 import kotlinx.coroutines.flow.first
 
 /**
- * Posts the daily reminder, then re-schedules itself for the next day.
+ * Posts the daily reminder. WorkManager invokes this worker once per day.
  * Skips the notification when the user has already met today's goal.
  */
 class ReminderWorker(
@@ -24,18 +24,15 @@ class ReminderWorker(
 
     override suspend fun doWork(): Result {
         val app = applicationContext as? HolaDeutschApp ?: return Result.success()
-        val scheduler = app.container.reminderScheduler
         val stats = app.container.statsRepository.stats.first()
 
-        // The user turned the reminder off since this job was queued: let the chain die.
+        // The settings flow normally cancels the periodic work; also guard against races.
         if (!stats.reminderEnabled) return Result.success()
 
         if (stats.wordsToday < stats.dailyGoal) {
             notify(stats)
         }
 
-        // Keep the daily cadence going.
-        scheduler.schedule(stats.reminderHour, stats.reminderMinute)
         return Result.success()
     }
 

@@ -83,7 +83,7 @@ fun ResultScreen(
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("+$xp XP ganados", style = MaterialTheme.typography.titleMedium)
-                    if (perfect) Text("Incluye +25 XP por sesión perfecta ⭐")
+                    if (perfect) Text("Sesión perfecta ⭐")
                     if (goalMet) Text("¡Meta diaria cumplida! +50 XP 🎯")
                     Text("🔥 Racha: $streak ${if (streak == 1) "día" else "días"}")
                 }

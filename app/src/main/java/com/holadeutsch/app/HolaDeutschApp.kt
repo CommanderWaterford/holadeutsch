@@ -29,7 +29,7 @@ class HolaDeutschApp : Application() {
         appScope.launch {
             val stats = container.statsRepository.stats.first()
             if (stats.reminderEnabled) {
-                container.reminderScheduler.schedule(stats.reminderHour, stats.reminderMinute)
+                container.reminderScheduler.ensureScheduled(stats.reminderHour, stats.reminderMinute)
             }
         }
         // Keep the TTS gate in sync with the user setting.

@@ -25,7 +25,16 @@ sealed interface Question {
     }
 
     data class Typed(override val word: Word) : Question
+
+    data class SentenceBuilder(
+        override val word: Word,
+        /** Tokens in the correct sentence order. IDs keep duplicate words distinct. */
+        val tokens: List<SentenceToken>,
+        val shuffledTokens: List<SentenceToken>
+    ) : Question
 }
+
+data class SentenceToken(val id: Int, val text: String)
 
 /**
  * Pure question generator + answer checker. Word selection follows SuperMemo-2:
@@ -58,12 +67,41 @@ class QuizEngine(private val random: Random = Random.Default) {
 
     private fun toQuestion(word: Word, all: List<Word>): Question {
         val roll = random.nextInt(100)
+        val sentence = buildSentenceQuestion(word)
         return when {
-            word.isNoun && roll < 20 -> Question.ArticleChoice(word)
-            roll < 40 -> Question.Typed(word)
-            roll < 70 -> multipleChoice(word, all, Direction.DE_TO_ES)
+            word.isNoun && roll < 15 -> Question.ArticleChoice(word)
+            roll < 35 -> Question.Typed(word)
+            sentence != null && roll < 55 -> sentence
+            roll < 78 -> multipleChoice(word, all, Direction.DE_TO_ES)
             else -> multipleChoice(word, all, Direction.ES_TO_DE)
         }
+    }
+
+    /** Builds a sentence-order exercise from the word's German example. */
+    fun buildSentenceQuestion(word: Word): Question.SentenceBuilder? {
+        val tokens = word.exampleDe
+            .trim()
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+            .mapIndexed { index, text -> SentenceToken(index, text) }
+        if (tokens.size < 2) return null
+
+        var shuffled = tokens.shuffled(random)
+        // A word bank that starts solved is not an exercise.
+        if (shuffled.map { it.id } == tokens.map { it.id }) {
+            shuffled = shuffled.drop(1) + shuffled.first()
+        }
+        return Question.SentenceBuilder(word, tokens, shuffled)
+    }
+
+    fun checkSentence(
+        question: Question.SentenceBuilder,
+        tokenIds: List<Int>,
+        hadPreviousError: Boolean
+    ): AnswerResult = if (tokenIds == question.tokens.map { it.id }) {
+        if (hadPreviousError) AnswerResult.PARTIAL else AnswerResult.CORRECT
+    } else {
+        AnswerResult.WRONG
     }
 
     private fun multipleChoice(word: Word, all: List<Word>, direction: Direction): Question.MultipleChoice {

@@ -24,7 +24,7 @@ object AppViewModelProvider {
         }
         initializer {
             val c = holaApp().container
-            OnboardingViewModel(c.statsRepository)
+            OnboardingViewModel(c.statsRepository, c.reminderScheduler)
         }
         initializer {
             val c = holaApp().container
